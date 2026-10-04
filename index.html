@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Visor de Red de Rutas y Alertas Meteorológicas</title>
 
-  <!-- Leaflet & Turf.js -->
+  <!-- Leaflet & Turf.js desde CDN públicas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
@@ -15,6 +15,7 @@
     body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     #map { width: 100%; height: 100vh; background: #e5e7eb; }
 
+    /* Barra flotante superior */
     .top-bar {
       position: absolute; top: 15px; left: 15px; z-index: 1000;
       background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
@@ -29,6 +30,7 @@
     .badge-danger { background: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
     .badge-ok { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
 
+    /* Selector de Vista (Pestañas) */
     .view-toggle {
       display: flex; background: #e5e7eb; border-radius: 8px; padding: 2px;
     }
@@ -38,6 +40,7 @@
     }
     .view-toggle button.active { background: #fff; color: #111; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
+    /* Panel Lateral (Modo Lista) */
     .side-drawer {
       position: absolute; top: 75px; left: 15px; bottom: 25px; width: 360px;
       background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px);
@@ -67,6 +70,7 @@
     .route-item-title { font-size: 0.88rem; font-weight: 600; color: #1e293b; margin-bottom: 3px; }
     .route-item-desc { font-size: 0.78rem; color: #64748b; line-height: 1.3; }
 
+    /* Leyenda en modo visual */
     .map-legend {
       position: absolute; bottom: 25px; right: 25px; z-index: 1000;
       background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px);
@@ -78,36 +82,27 @@
 </head>
 <body>
 
+  <!-- Barra Superior -->
   <div class="top-bar">
     <h1>Red de Rutas & AEMET</h1>
-<<<<<<< HEAD
-    <div id="statusBadge" class="badge-counter">Comprobando alertas...</div>
-=======
     <div id="statusBadge" class="badge-counter">Analizando avisos...</div>
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     <div class="view-toggle">
       <button id="btnViewMap" class="active" onclick="setViewMode('visual')">Visual (Tracks)</button>
       <button id="btnViewList" onclick="setViewMode('lista')">Lista Detallada</button>
     </div>
   </div>
 
+  <!-- Panel Desplegable (Modo Lista) -->
   <div id="sideDrawer" class="side-drawer hidden">
     <div class="drawer-header">
-<<<<<<< HEAD
-      <span id="listCounter">Catálogo de rutas</span>
-=======
       <span id="listCounter">Cargando catálogo...</span>
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     </div>
     <ul id="routeListContainer" class="route-list"></ul>
   </div>
 
+  <!-- Leyenda Visual -->
   <div class="map-legend">
-<<<<<<< HEAD
-    <div style="font-weight: bold; margin-bottom: 4px;">Avisos Meteorológicos</div>
-=======
     <div style="font-weight: bold; margin-bottom: 4px;">Estado de Rutas / Avisos</div>
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     <div><span class="legend-bullet" style="background:#0284c7;"></span> Ruta Despejada</div>
     <div><span class="legend-bullet" style="background:#eab308;"></span> Aviso Amarillo</div>
     <div><span class="legend-bullet" style="background:#ea580c;"></span> Aviso Naranja</div>
@@ -117,15 +112,6 @@
   <div id="map"></div>
 
   <script>
-<<<<<<< HEAD
-    // 1. Inicialización del Mapa
-    const map = L.map('map').setView([40.4168, -3.7038], 6);
-
-    // Mapa base abierto
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '© OpenStreetMap'
-=======
     // 1. Inicializar Mapa con capa libre OpenStreetMap
     const map = L.map('map').setView([40.4168, -3.7038], 6);
 
@@ -155,47 +141,12 @@
         const desc = p.description || p.instruction || p.areaDesc || '';
         layer.bindPopup(`<strong>${nombreAviso}</strong><br><small>${desc}</small>`);
       }
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     }).addTo(map);
 
-    // 2. Capa WMS pública de Avisos Meteorológicos (MeteoAlarm / AEMET)
-    // Se proyecta directamente como capa transparente sobre el mapa base sin restricciones de CORS ni API Key
-    const meteoWmsLayer = L.tileLayer.wms('https://meteoalarm.org/api/v1/wms', {
-      layers: 'warnings',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: 'Avisos: EUMETNET / Meteoalarm / AEMET'
-    }).addTo(map);
-
-    // Control de capas
-    L.control.layers(
-      { "OpenStreetMap": osmLayer },
-      { "Capa Oficial Avisos AEMET": meteoWmsLayer },
-      { position: 'topright' }
-    ).addTo(map);
-
+    let activeAlertsGeoJSON = null;
     let catalogFeatures = [];
     const routeLayersMap = {};
 
-<<<<<<< HEAD
-    const TRACK_STYLES = {
-      ok: { color: '#0284c7', weight: 4.5, opacity: 0.9 },
-      amarillo: { color: '#ca8a04', weight: 6, opacity: 1.0 },
-      naranja: { color: '#ea580c', weight: 6.5, opacity: 1.0 },
-      rojo: { color: '#dc2626', weight: 7.5, opacity: 1.0 }
-    };
-
-    // 3. Cargar el catálogo rutas.geojson
-    async function loadRoutes() {
-      try {
-        const res = await fetch('rutas.geojson');
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        catalogFeatures = data.features;
-      } catch (err) {
-        console.warn("Cargando rutas de respaldo");
-=======
     // 3. Estilos de las trazas de ruta (semáforo reactivo)
     const TRACK_STYLES = {
       ok: { color: '#0284c7', weight: 4, opacity: 0.85 },
@@ -259,7 +210,6 @@
         }
       } catch (e) {
         console.warn("rutas.geojson no encontrado, usando rutas de prueba locales.");
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
         catalogFeatures = [
           {
             type: "Feature",
@@ -300,24 +250,17 @@
         ];
       }
 
-      renderizarTracks();
+      procesarRedYRutas();
     }
 
-<<<<<<< HEAD
-    // 4. Renderizar trazas en el mapa
-    function renderizarTracks() {
-=======
     // 5. Análisis espacial y pintado de la red de tracks
     function procesarRedYRutas() {
       let alertaCount = 0;
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
       const allBounds = L.latLngBounds();
 
       catalogFeatures.forEach(route => {
-        route.statusKey = 'ok'; // Base limpia
+        let routeAlerts = [];
 
-<<<<<<< HEAD
-=======
         // Evaluar colisiones geométricas con Turf.js
         if (activeAlertsGeoJSON && activeAlertsGeoJSON.features) {
           activeAlertsGeoJSON.features.forEach(alert => {
@@ -345,9 +288,8 @@
         route.statusKey = statusKey;
 
         // Dibujar track en el mapa
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
         const layer = L.geoJSON(route, {
-          style: TRACK_STYLES.ok
+          style: TRACK_STYLES[statusKey]
         }).addTo(map);
 
         const avisosTexto = routeAlerts.length > 0 
@@ -357,12 +299,8 @@
         layer.bindPopup(`
           <div style="font-size: 0.9rem;">
             <strong>${route.properties.name}</strong><br>
-<<<<<<< HEAD
-            <small>Comprueba la capa de color de avisos de fondo sobre esta traza.</small>
-=======
             Estado: <strong style="text-transform:uppercase; color:${TRACK_STYLES[statusKey].color}">${statusKey === 'ok' ? 'Despejada' : 'Aviso ' + statusKey}</strong><br><br>
             ${avisosTexto}
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
           </div>
         `);
 
@@ -370,10 +308,6 @@
         allBounds.extend(layer.getBounds());
       });
 
-<<<<<<< HEAD
-      if (catalogFeatures.length > 0) {
-        map.fitBounds(allBounds, { padding: [60, 60] });
-=======
       // Encuadrar la vista sobre todas las rutas
       if (catalogFeatures.length > 0) {
         map.fitBounds(allBounds, { padding: [50, 50] });
@@ -387,45 +321,41 @@
       } else {
         badge.className = 'badge-counter badge-ok';
         badge.innerText = `✅ ${catalogFeatures.length} rutas despejadas`;
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
       }
-
-      const badge = document.getElementById('statusBadge');
-      badge.className = 'badge-counter badge-ok';
-      badge.innerText = `Mostrando ${catalogFeatures.length} rutas`;
 
       renderizarModoLista();
     }
 
-<<<<<<< HEAD
-=======
     // 6. Rellenar Modo Lista
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     function renderizarModoLista() {
       const container = document.getElementById('routeListContainer');
       container.innerHTML = '';
 
-<<<<<<< HEAD
-      document.getElementById('listCounter').innerText = `Catálogo (${catalogFeatures.length} rutas)`;
-=======
       // Ordenar: primero rojas, naranjas, amarillas y al final las despejadas
       const orden = { rojo: 1, naranja: 2, amarillo: 3, ok: 4 };
       const sorted = [...catalogFeatures].sort((a, b) => orden[a.statusKey] - orden[b.statusKey]);
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
 
-      catalogFeatures.forEach(r => {
+      document.getElementById('listCounter').innerText = `Catálogo (${sorted.length} rutas)`;
+
+      sorted.forEach(r => {
         const li = document.createElement('li');
-        li.className = 'route-item alert-ok';
+        li.className = `route-item alert-${r.statusKey}`;
+        
+        let desc = 'Sin avisos previstos en la zona';
+        if (r.alerts.length > 0) {
+          desc = r.alerts.map(a => a.event || a.headline || a.fenomeno).join('; ');
+        }
+
         li.innerHTML = `
           <div class="route-item-title">${r.properties.name}</div>
-          <div class="route-item-desc">Toca para centrar en el mapa y verificar con la capa de avisos.</div>
+          <div class="route-item-desc">${desc}</div>
         `;
 
         li.addEventListener('click', () => {
-          const target = routeLayersMap[r.id || r.properties.name];
-          if (target) {
-            map.fitBounds(target.getBounds(), { padding: [100, 100], maxZoom: 13 });
-            target.openPopup();
+          const targetLayer = routeLayersMap[r.id || r.properties.name];
+          if (targetLayer) {
+            map.fitBounds(targetLayer.getBounds(), { padding: [100, 100], maxZoom: 13 });
+            targetLayer.openPopup();
           }
         });
 
@@ -433,10 +363,7 @@
       });
     }
 
-<<<<<<< HEAD
-=======
     // 7. Alternar entre Modo Visual y Lista
->>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     function setViewMode(mode) {
       const drawer = document.getElementById('sideDrawer');
       const btnMap = document.getElementById('btnViewMap');
@@ -453,7 +380,7 @@
       }
     }
 
-    loadRoutes();
+    loadData();
   </script>
 </body>
 </html>
