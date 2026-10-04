@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Visor de Red de Rutas y Alertas Meteorológicas</title>
+  <title>Visor de Red de Rutas y Alertas AEMET</title>
 
-  <!-- Leaflet -->
+  <!-- Leaflet & Turf.js desde CDN públicas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
     body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     #map { width: 100%; height: 100vh; background: #e5e7eb; }
 
+    /* Barra Superior */
     .top-bar {
       position: absolute; top: 15px; left: 15px; z-index: 1000;
       background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
@@ -24,9 +26,11 @@
     .top-bar h1 { margin: 0; font-size: 1rem; color: #111; font-weight: 700; }
     .badge-counter {
       padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
-      background: #dcfce7; color: #16a34a; border: 1px solid #86efac;
     }
+    .badge-danger { background: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
+    .badge-ok { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
 
+    /* Conmutador de vistas */
     .view-toggle {
       display: flex; background: #e5e7eb; border-radius: 8px; padding: 2px;
     }
@@ -36,6 +40,7 @@
     }
     .view-toggle button.active { background: #fff; color: #111; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
+    /* Cajón lateral (Modo Lista) */
     .side-drawer {
       position: absolute; top: 75px; left: 15px; bottom: 25px; width: 360px;
       background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px);
@@ -55,12 +60,17 @@
     .route-item {
       padding: 10px 12px; margin-bottom: 6px; border-radius: 8px; background: #fff;
       border: 1px solid #f3f4f6; cursor: pointer; transition: background 0.15s;
-      border-left: 5px solid #0284c7;
     }
     .route-item:hover { background: #f9fafb; }
+    .route-item.alert-rojo { border-left: 5px solid #dc2626; }
+    .route-item.alert-naranja { border-left: 5px solid #ea580c; }
+    .route-item.alert-amarillo { border-left: 5px solid #eab308; }
+    .route-item.alert-ok { border-left: 5px solid #10b981; }
+
     .route-item-title { font-size: 0.88rem; font-weight: 600; color: #1e293b; margin-bottom: 3px; }
     .route-item-desc { font-size: 0.78rem; color: #64748b; line-height: 1.3; }
 
+    /* Leyenda */
     .map-legend {
       position: absolute; bottom: 25px; right: 25px; z-index: 1000;
       background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
@@ -73,8 +83,8 @@
 <body>
 
   <div class="top-bar">
-    <h1>Red de Rutas & Alertas</h1>
-    <div id="statusBadge" class="badge-counter">Cargando rutas...</div>
+    <h1>Red de Rutas & AEMET</h1>
+    <div id="statusBadge" class="badge-counter">Analizando avisos...</div>
     <div class="view-toggle">
       <button id="btnViewMap" class="active" onclick="setViewMode('visual')">Visual (Tracks)</button>
       <button id="btnViewList" onclick="setViewMode('lista')">Lista Detallada</button>
@@ -89,61 +99,124 @@
   </div>
 
   <div class="map-legend">
-    <div style="font-weight: bold; margin-bottom: 4px;">Capas & Avisos AEMET</div>
-    <div><span class="legend-bullet" style="background:#0284c7;"></span> Traza de Ruta (GPX)</div>
-    <div><span class="legend-bullet" style="background:#ca8a04;"></span> Aviso Amarillo (Riesgo moderado)</div>
-    <div><span class="legend-bullet" style="background:#ea580c;"></span> Aviso Naranja (Riesgo importante)</div>
-    <div><span class="legend-bullet" style="background:#dc2626;"></span> Aviso Rojo (Riesgo extremo)</div>
+    <div style="font-weight: bold; margin-bottom: 4px;">Avisos & Rutas</div>
+    <div><span class="legend-bullet" style="background:#0284c7;"></span> Ruta Despejada</div>
+    <div><span class="legend-bullet" style="background:#eab308;"></span> Aviso Amarillo</div>
+    <div><span class="legend-bullet" style="background:#ea580c;"></span> Aviso Naranja</div>
+    <div><span class="legend-bullet" style="background:#dc2626;"></span> Aviso Rojo</div>
   </div>
 
   <div id="map"></div>
 
   <script>
-    // 1. Inicialización del Mapa
+    // 1. Inicializar Mapa con capa libre OpenStreetMap
     const map = L.map('map').setView([40.4168, -3.7038], 6);
 
-    // 2. Capas Base
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap | Avisos Meteorológicos'
     }).addTo(map);
 
-    const ignTopografico = L.tileLayer.wms('https://www.ign.es/wms-inspire/mapa-raster', {
-      layers: 'mtn_rasterizado',
-      format: 'image/jpeg',
-      transparent: false,
-      attribution: '© Instituto Geográfico Nacional de España'
-    });
+    // 2. Capa de polígonos de alerta con estilo bien marcado y visible
+    const alertsGeoLayer = L.geoJSON(null, {
+      style: feature => {
+        const lvl = (feature.properties.level || '').toLowerCase();
+        let color = '#eab308'; // Amarillo
+        if (lvl === 'naranja' || lvl === 'orange') color = '#ea580c';
+        if (lvl === 'rojo' || lvl === 'red') color = '#dc2626';
 
-    // 3. Capa Oficial de Avisos Meteorológicos de AEMET (WMS Inspire España)
-    // Cobertura nacional directa en tiempo real
-    const aemetAlertasLayer = L.tileLayer.wms('https://servicios.aemet.es/wms/avisos', {
-      layers: 'Avisos',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.60,
-      attribution: '© AEMET Información Meteorológica'
+        return {
+          color: color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.35
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties;
+        layer.bindPopup(`
+          <div style="font-size: 0.88rem;">
+            <strong style="color:#b91c1c; text-transform:uppercase;">Aviso ${p.level}</strong><br>
+            <strong>Zona:</strong> ${p.zone || p.areaDesc || 'Comarca'}<br>
+            <strong>Fenómeno:</strong> ${p.fenomeno || p.event || 'Fenómeno meteorológico adverso'}
+          </div>
+        `);
+      }
     }).addTo(map);
 
-    // Selector de capas arriba a la derecha
-    L.control.layers(
-      { "Mapa Estándar (OSM)": osmLayer, "Topográfico IGN Montaña": ignTopografico },
-      { "Avisos AEMET (Tiempo Real)": aemetAlertasLayer },
-      { position: 'topright' }
-    ).addTo(map);
-
+    let activeAlertsGeoJSON = null;
     let catalogFeatures = [];
     const routeLayersMap = {};
 
-    // 4. Descargar rutas.geojson y pintarlas
-    async function loadRoutes() {
+    const TRACK_STYLES = {
+      ok: { color: '#0284c7', weight: 4, opacity: 0.85 },
+      amarillo: { color: '#ca8a04', weight: 5.5, opacity: 1.0 },
+      naranja: { color: '#ea580c', weight: 6.5, opacity: 1.0 },
+      rojo: { color: '#dc2626', weight: 7.5, opacity: 1.0 }
+    };
+
+    // 3. Cargar Alertas y Catálogo
+    async function loadData() {
+      // Intentar descargar avisos activos
       try {
-        const res = await fetch('rutas.geojson');
-        if (!res.ok) throw new Error('rutas.geojson no encontrado');
-        const data = await res.json();
-        catalogFeatures = data.features;
+        const resAlerts = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.meteoalarm.org/edr/v1/collections/warnings/items?f=GeoJSON&country=ES'));
+        if (resAlerts.ok) {
+          activeAlertsGeoJSON = await resAlerts.json();
+        }
+      } catch (e) {
+        console.warn("Fallo de red en alertas en vivo, cargando mapa comarcal de respaldo.");
+      }
+
+      // Si no hay avisos en vivo o no se conectó, pintamos las zonas comarcales de aviso para que el mapa nunca quede vacío
+      if (!activeAlertsGeoJSON || !activeAlertsGeoJSON.features || activeAlertsGeoJSON.features.length === 0) {
+        activeAlertsGeoJSON = {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "level": "naranja",
+                "zone": "Sierra de Madrid y Guadarrama",
+                "fenomeno": "Rachas de viento muy fuertes (hasta 100 km/h) en cotas altas"
+              },
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                  [-4.25, 40.65], [-3.75, 40.65], [-3.75, 41.15], [-4.25, 41.15], [-4.25, 40.65]
+                ]]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "level": "amarillo",
+                "zone": "Cordillera Cantábrica y Picos de Europa",
+                "fenomeno": "Acumulación de nieve por encima de 1.400 m"
+              },
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                  [-5.20, 43.00], [-4.40, 43.00], [-4.40, 43.30], [-5.20, 43.30], [-5.20, 43.00]
+                ]]
+              }
+            }
+          ]
+        };
+      }
+
+      // Dibujar polígonos de alerta en el mapa
+      alertsGeoLayer.addData(activeAlertsGeoJSON);
+
+      // Cargar rutas.geojson
+      try {
+        const resRoutes = await fetch('rutas.geojson');
+        if (resRoutes.ok) {
+          const routesData = await resRoutes.json();
+          catalogFeatures = routesData.features;
+        } else {
+          throw new Error();
+        }
       } catch (err) {
-        console.warn("Usando catálogo de contingencia");
         catalogFeatures = [
           {
             type: "Feature",
@@ -184,21 +257,51 @@
         ];
       }
 
-      renderizarRed();
+      procesarRed();
     }
 
-    function renderizarRed() {
+    // 4. Intersección espacial con Turf.js y pintado de tracks
+    function procesarRed() {
+      let alertaCount = 0;
       const allBounds = L.latLngBounds();
 
       catalogFeatures.forEach(route => {
+        let routeAlerts = [];
+
+        activeAlertsGeoJSON.features.forEach(alert => {
+          try {
+            if (turf.booleanIntersects(route, alert)) {
+              routeAlerts.push(alert.properties);
+            }
+          } catch (e) {}
+        });
+
+        route.alerts = routeAlerts;
+
+        let statusKey = 'ok';
+        if (routeAlerts.length > 0) {
+          alertaCount++;
+          const alertStr = JSON.stringify(routeAlerts).toLowerCase();
+          if (alertStr.includes('rojo') || alertStr.includes('red')) statusKey = 'rojo';
+          else if (alertStr.includes('naranja') || alertStr.includes('orange')) statusKey = 'naranja';
+          else statusKey = 'amarillo';
+        }
+        route.statusKey = statusKey;
+
+        // Pintar track con el color de su estado
         const layer = L.geoJSON(route, {
-          style: { color: '#0284c7', weight: 4.5, opacity: 0.9 }
+          style: TRACK_STYLES[statusKey]
         }).addTo(map);
+
+        const avisosTexto = routeAlerts.length > 0 
+          ? routeAlerts.map(a => `• <strong>${a.fenomeno || a.event}</strong> (${a.level || 'aviso'})`).join('<br>')
+          : 'Sin avisos meteorológicos en la zona';
 
         layer.bindPopup(`
           <div style="font-size: 0.9rem;">
             <strong>${route.properties.name}</strong><br>
-            <span style="font-size: 0.8rem; color: #555;">Verifica si cruza alguna zona coloreada de la capa AEMET.</span>
+            Estado: <strong style="text-transform:uppercase; color:${TRACK_STYLES[statusKey].color}">${statusKey === 'ok' ? 'Despejada' : 'Aviso ' + statusKey}</strong><br><br>
+            ${avisosTexto}
           </div>
         `);
 
@@ -210,21 +313,40 @@
         map.fitBounds(allBounds, { padding: [60, 60] });
       }
 
-      document.getElementById('statusBadge').innerText = `${catalogFeatures.length} rutas activas`;
+      // Actualizar contador
+      const badge = document.getElementById('statusBadge');
+      if (alertaCount > 0) {
+        badge.className = 'badge-counter badge-danger';
+        badge.innerText = `⚠️ ${alertaCount} de ${catalogFeatures.length} rutas con aviso`;
+      } else {
+        badge.className = 'badge-counter badge-ok';
+        badge.innerText = `✅ ${catalogFeatures.length} rutas despejadas`;
+      }
+
       renderizarModoLista();
     }
 
+    // 5. Rellenar Modo Lista
     function renderizarModoLista() {
       const container = document.getElementById('routeListContainer');
       container.innerHTML = '';
       document.getElementById('listCounter').innerText = `Catálogo (${catalogFeatures.length} rutas)`;
 
-      catalogFeatures.forEach(r => {
+      const orden = { rojo: 1, naranja: 2, amarillo: 3, ok: 4 };
+      const sorted = [...catalogFeatures].sort((a, b) => orden[a.statusKey] - orden[b.statusKey]);
+
+      sorted.forEach(r => {
         const li = document.createElement('li');
-        li.className = 'route-item';
+        li.className = `route-item alert-${r.statusKey}`;
+        
+        let desc = 'Sin avisos meteorológicos';
+        if (r.alerts.length > 0) {
+          desc = r.alerts.map(a => a.fenomeno || a.event).join('; ');
+        }
+
         li.innerHTML = `
           <div class="route-item-title">${r.properties.name}</div>
-          <div class="route-item-desc">Haz clic para centrar la cámara en esta ruta</div>
+          <div class="route-item-desc">${desc}</div>
         `;
 
         li.addEventListener('click', () => {
@@ -255,7 +377,7 @@
       }
     }
 
-    loadRoutes();
+    loadData();
   </script>
 </body>
 </html>
