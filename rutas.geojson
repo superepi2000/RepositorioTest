@@ -1,0 +1,156 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "penalara_circular",
+      "properties": {
+        "name": "Circular Peñalara por Dos Hermanas",
+        "zona": "Sierra de Guadarrama",
+        "distancia_km": 11.2,
+        "desnivel_m": 580
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-3.9658, 40.8252],
+          [-3.9681, 40.8315],
+          [-3.9742, 40.8398],
+          [-3.9785, 40.8465],
+          [-3.9730, 40.8512],
+          [-3.9635, 40.8458],
+          [-3.9610, 40.8350],
+          [-3.9658, 40.8252]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "monton_de_trigo",
+      "properties": {
+        "name": "Montón de Trigo desde Cercedilla (Dehesas)",
+        "zona": "Sierra de Guadarrama",
+        "distancia_km": 14.5,
+        "desnivel_m": 820
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-4.0620, 40.7715],
+          [-4.0712, 40.7850],
+          [-4.0850, 40.7985],
+          [-4.0810, 40.8062],
+          [-4.0680, 40.8120],
+          [-4.0712, 40.7850],
+          [-4.0620, 40.7715]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "pedriza_integral",
+      "properties": {
+        "name": "Integral de La Pedriza (Canto Cochino - Las Torres)",
+        "zona": "Sierra de Guadarrama",
+        "distancia_km": 18.0,
+        "desnivel_m": 950
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-3.8950, 40.7550],
+          [-3.8820, 40.7710],
+          [-3.8710, 40.7850],
+          [-3.8650, 40.7720],
+          [-3.8780, 40.7610],
+          [-3.8950, 40.7550]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "pico_lobo",
+      "properties": {
+        "name": "Ascensión al Pico del Lobo",
+        "zona": "Sierra de Ayllón",
+        "distancia_km": 13.0,
+        "desnivel_m": 720
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-3.4750, 41.2050],
+          [-3.4680, 41.1920],
+          [-3.4550, 41.1810],
+          [-3.4480, 41.1780],
+          [-3.4550, 41.1810],
+          [-3.4750, 41.2050]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "gredos_circo",
+      "properties": {
+        "name": "Plataforma a Laguna Grande y Circo de Gredos",
+        "zona": "Sierra de Gredos",
+        "distancia_km": 12.8,
+        "desnivel_m": 600
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-5.2410, 40.2980],
+          [-5.2520, 40.2910],
+          [-5.2630, 40.2850],
+          [-5.2750, 40.2790],
+          [-5.2850, 40.2740],
+          [-5.2630, 40.2850],
+          [-5.2410, 40.2980]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "cazorla_borosa",
+      "properties": {
+        "name": "Ruta del Río Borosa y Cerrada de Elías",
+        "zona": "Sierras de Cazorla y Segura",
+        "distancia_km": 21.0,
+        "desnivel_m": 450
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-2.9200, 38.0120],
+          [-2.9050, 38.0050],
+          [-2.8870, 37.9980],
+          [-2.8680, 37.9920],
+          [-2.8870, 37.9980],
+          [-2.9200, 38.0120]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ordesa_faja_flores",
+      "properties": {
+        "name": "Pradera de Ordesa a Faja de las Flores",
+        "zona": "Pirineos (Ordesa y Monte Perdido)",
+        "distancia_km": 15.2,
+        "desnivel_m": 1100
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-0.0550, 42.6530],
+          [-0.0420, 42.6610],
+          [-0.0310, 42.6680],
+          [-0.0210, 42.6640],
+          [-0.0380, 42.6550],
+          [-0.0550, 42.6530]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visor de Red de Rutas y Alertas Meteorológicas</title>
+
+  <!-- Leaflet & Turf.js desde CDN públicas -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #map { width: 100%; height: 100vh; background: #1a1a1a; }
+
+    /* Barra flotante superior */
+    .top-bar {
+      position: absolute; top: 15px; left: 15px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+      padding: 12px 18px; border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      display: flex; align-items: center; gap: 15px;
+    }
+    .top-bar h1 { margin: 0; font-size: 1rem; color: #111; font-weight: 700; }
+    .badge-counter {
+      padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+    }
+    .badge-danger { background: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
+    .badge-ok { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+
+    /* Selector de Vista (Pestañas) */
+    .view-toggle {
+      display: flex; background: #e5e7eb; border-radius: 8px; padding: 2px;
+    }
+    .view-toggle button {
+      border: none; background: transparent; padding: 6px 12px; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .view-toggle button.active { background: #fff; color: #111; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    /* Panel Lateral (Modo Lista) */
+    .side-drawer {
+      position: absolute; top: 75px; left: 15px; bottom: 25px; width: 360px;
+      background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px);
+      border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+      z-index: 1000; display: flex; flex-direction: column; overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+    .side-drawer.hidden { transform: translateX(-390px); }
+    
+    .drawer-header {
+      padding: 14px 16px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .drawer-header span { font-weight: 600; font-size: 0.9rem; color: #374151; }
+
+    .route-list { overflow-y: auto; flex: 1; padding: 8px; margin: 0; list-style: none; }
+    .route-item {
+      padding: 10px 12px; margin-bottom: 6px; border-radius: 8px; background: #fff;
+      border: 1px solid #f3f4f6; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .route-item:hover { background: #f9fafb; border-color: #cbd5e1; }
+    .route-item.alert-rojo { border-left: 5px solid #dc2626; }
+    .route-item.alert-naranja { border-left: 5px solid #ea580c; }
+    .route-item.alert-amarillo { border-left: 5px solid #eab308; }
+    .route-item.alert-ok { border-left: 5px solid #10b981; }
+
+    .route-item-title { font-size: 0.88rem; font-weight: 600; color: #1e293b; margin-bottom: 3px; }
+    .route-item-desc { font-size: 0.78rem; color: #64748b; line-height: 1.3; }
+
+    /* Leyenda en modo visual */
+    .map-legend {
+      position: absolute; bottom: 25px; right: 25px; z-index: 1000;
+      background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(8px);
+      padding: 10px 14px; border-radius: 8px; font-size: 0.78rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1); line-height: 1.6;
+    }
+    .legend-bullet { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Barra Superior -->
+  <div class="top-bar">
+    <h1>Red de Rutas & AEMET</h1>
+    <div id="statusBadge" class="badge-counter">Analizando red...</div>
+    <div class="view-toggle">
+      <button id="btnViewMap" class="active" onclick="setViewMode('visual')">Visual (Tracks)</button>
+      <button id="btnViewList" onclick="setViewMode('lista')">Lista Detallada</button>
+    </div>
+  </div>
+
+  <!-- Panel Desplegable (Modo Lista) -->
+  <div id="sideDrawer" class="side-drawer hidden">
+    <div class="drawer-header">
+      <span id="listCounter">Cargando rutas...</span>
+    </div>
+    <ul id="routeListContainer" class="route-list"></ul>
+  </div>
+
+  <!-- Leyenda Visual -->
+  <div class="map-legend">
+    <div><span class="legend-bullet" style="background:#0284c7;"></span> Ruta Despejada</div>
+    <div><span class="legend-bullet" style="background:#eab308;"></span> Aviso Amarillo</div>
+    <div><span class="legend-bullet" style="background:#ea580c;"></span> Aviso Naranja</div>
+    <div><span class="legend-bullet" style="background:#dc2626;"></span> Aviso Rojo</div>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    // 1. Inicializar Mapa con capa topográfica clara para contrastar con las trazas
+    const map = L.map('map').setView([40.4168, -3.7038], 6);
+
+    const baseMaps = {
+      "Topográfico (OpenTopo)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17, attribution: '© OpenTopoMap'
+      }),
+      "Relieve / Neutro": L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19, attribution: '© CARTO'
+      })
+    };
+    baseMaps["Relieve / Neutro"].addTo(map);
+    L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+
+    // Capa de polígonos de alerta de fondo (tenues para no tapar los tracks)
+    const alertsGeoLayer = L.geoJSON(null, {
+      style: feature => {
+        const severity = (feature.properties.severity || feature.properties.level || '').toLowerCase();
+        let color = '#facc15';
+        if (severity.includes('orange') || severity.includes('naranja') || severity.includes('severe')) color = '#fb923c';
+        if (severity.includes('red') || severity.includes('rojo') || severity.includes('extreme')) color = '#f87171';
+        return { color: color, weight: 1, fillOpacity: 0.18, dashArray: '4' };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties;
+        layer.bindPopup(`<strong>Aviso Oficial:</strong> ${p.event || p.headline || p.fenomeno || 'Meteorología adversa'}`);
+      }
+    }).addTo(map);
+
+    let activeAlertsGeoJSON = null;
+    let catalogFeatures = [];
+    const routeLayersMap = {};
+
+    // 2. Colores y Estilos para los tracks tipo Strava
+    const TRACK_STYLES = {
+      ok: { color: '#0284c7', weight: 3.5, opacity: 0.8 },
+      amarillo: { color: '#eab308', weight: 5, opacity: 0.95 },
+      naranja: { color: '#ea580c', weight: 5.5, opacity: 0.95 },
+      rojo: { color: '#dc2626', weight: 6, opacity: 1.0 }
+    };
+
+    // 3. Cargar Alertas y Catálogo de Rutas
+    async function loadData() {
+      // Intentamos cargar alertas en vivo de Meteoalarm (cobertura AEMET para España)
+      try {
+        const resAlerts = await fetch('https://api.meteoalarm.org/edr/v1/collections/warnings/items?f=GeoJSON&country=ES');
+        if (resAlerts.ok) activeAlertsGeoJSON = await resAlerts.json();
+      } catch (e) {
+        console.warn("Fallo al conectar con Meteoalarm en vivo, usando datos de contingencia.");
+      }
+
+      // Si no hay respuesta o falla el fetch en vivo, usamos fallback para asegurar renderizado
+      if (!activeAlertsGeoJSON || !activeAlertsGeoJSON.features) {
+        activeAlertsGeoJSON = {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: { level: "naranja", event: "Rachas de viento muy fuertes en cotas altas" },
+              geometry: {
+                type: "Polygon",
+                coordinates: [[[-4.2, 40.7], [-3.8, 40.7], [-3.8, 41.1], [-4.2, 41.1], [-4.2, 40.7]]]
+              }
+            }
+          ]
+        };
+      }
+
+      alertsGeoLayer.addData(activeAlertsGeoJSON);
+
+      // Cargar el archivo rutas.geojson del repositorio
+      try {
+        const resRoutes = await fetch('rutas.geojson');
+        if (resRoutes.ok) {
+          const routesData = await resRoutes.json();
+          catalogFeatures = routesData.features;
+        } else {
+          throw new Error('rutas.geojson no encontrado');
+        }
+      } catch (err) {
+        // Datos de ejemplo demostrativos si aún no has subido tu rutas.geojson
+        catalogFeatures = [
+          {
+            type: "Feature",
+            id: "penalara_circular",
+            properties: { name: "Circular Peñalara (Cotos - Dos Hermanas)" },
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-3.9658, 40.8252], [-3.9680, 40.8310], [-3.9740, 40.8390],
+                [-3.9780, 40.8460], [-3.9720, 40.8510], [-3.9630, 40.8450], [-3.9658, 40.8252]
+              ]
+            }
+          },
+          {
+            type: "Feature",
+            id: "la_pedriza_integral",
+            properties: { name: "Integral de La Pedriza" },
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-3.8950, 40.7550], [-3.8820, 40.7710], [-3.8710, 40.7850],
+                [-3.8650, 40.7720], [-3.8950, 40.7550]
+              ]
+            }
+          },
+          {
+            type: "Feature",
+            id: "gredos_laguna_grande",
+            properties: { name: "Laguna Grande de Gredos" },
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-5.2410, 40.2980], [-5.2630, 40.2850], [-5.2850, 40.2740]
+              ]
+            }
+          }
+        ];
+      }
+
+      procesarRedYRutas();
+    }
+
+    // 4. Intersección geométrica y pintado de la red
+    function procesarRedYRutas() {
+      let alertaCount = 0;
+      const allBounds = L.latLngBounds();
+
+      catalogFeatures.forEach(route => {
+        let routeAlerts = [];
+
+        // Comprobación espacial con Turf.js
+        activeAlertsGeoJSON.features.forEach(alert => {
+          if (turf.booleanIntersects(route, alert)) {
+            routeAlerts.push(alert.properties);
+          }
+        });
+
+        route.alerts = routeAlerts;
+
+        // Determinar nivel máximo de alerta de la ruta
+        let statusKey = 'ok';
+        if (routeAlerts.length > 0) {
+          alertaCount++;
+          const alertDesc = JSON.stringify(routeAlerts).toLowerCase();
+          if (alertDesc.includes('rojo') || alertDesc.includes('red') || alertDesc.includes('extreme')) statusKey = 'rojo';
+          else if (alertDesc.includes('naranja') || alertDesc.includes('orange') || alertDesc.includes('severe')) statusKey = 'naranja';
+          else statusKey = 'amarillo';
+        }
+        route.statusKey = statusKey;
+
+        // Pintar track en el mapa
+        const layer = L.geoJSON(route, {
+          style: TRACK_STYLES[statusKey]
+        }).addTo(map);
+
+        layer.bindPopup(`
+          <strong>${route.properties.name}</strong><br>
+          Estado: <strong style="text-transform:uppercase;">${statusKey === 'ok' ? 'Limpia' : 'Aviso ' + statusKey}</strong><br>
+          ${routeAlerts.map(a => `• ${a.event || a.headline || a.fenomeno || 'Aviso meteorológico'}`).join('<br>')}
+        `);
+
+        routeLayersMap[route.id || route.properties.name] = layer;
+        allBounds.extend(layer.getBounds());
+      });
+
+      // Ajustar encuadre general a la red de rutas
+      if (catalogFeatures.length > 0) map.fitBounds(allBounds, { padding: [50, 50] });
+
+      // Actualizar contadores
+      const badge = document.getElementById('statusBadge');
+      if (alertaCount > 0) {
+        badge.className = 'badge-counter badge-danger';
+        badge.innerText = `⚠️ ${alertaCount} de ${catalogFeatures.length} rutas con aviso`;
+      } else {
+        badge.className = 'badge-counter badge-ok';
+        badge.innerText = `✅ ${catalogFeatures.length} rutas despejadas`;
+      }
+
+      renderizarModoLista();
+    }
+
+    // 5. Renderizado del Modo Lista (priorizando avisos arriba)
+    function renderizarModoLista() {
+      const container = document.getElementById('routeListContainer');
+      container.innerHTML = '';
+
+      // Ordenar: primero las que tienen alertas rojas, naranjas, amarillas, y al final las 'ok'
+      const orden = { rojo: 1, naranja: 2, amarillo: 3, ok: 4 };
+      const sorted = [...catalogFeatures].sort((a, b) => orden[a.statusKey] - orden[b.statusKey]);
+
+      document.getElementById('listCounter').innerText = `Catálogo (${sorted.length} rutas)`;
+
+      sorted.forEach(r => {
+        const li = document.createElement('li');
+        li.className = `route-item alert-${r.statusKey}`;
+        
+        let desc = 'Sin avisos previstos en la zona';
+        if (r.alerts.length > 0) {
+          desc = r.alerts.map(a => a.event || a.headline || a.fenomeno).join('; ');
+        }
+
+        li.innerHTML = `
+          <div class="route-item-title">${r.properties.name}</div>
+          <div class="route-item-desc">${desc}</div>
+        `;
+
+        li.addEventListener('click', () => {
+          const targetLayer = routeLayersMap[r.id || r.properties.name];
+          if (targetLayer) {
+            map.fitBounds(targetLayer.getBounds(), { padding: [100, 100], maxZoom: 13 });
+            targetLayer.openPopup();
+          }
+        });
+
+        container.appendChild(li);
+      });
+    }
+
+    // 6. Conmutador de Vistas
+    function setViewMode(mode) {
+      const drawer = document.getElementById('sideDrawer');
+      const btnMap = document.getElementById('btnViewMap');
+      const btnList = document.getElementById('btnViewList');
+
+      if (mode === 'visual') {
+        drawer.classList.add('hidden');
+        btnMap.classList.add('active');
+        btnList.classList.remove('active');
+      } else {
+        drawer.classList.remove('hidden');
+        btnList.classList.add('active');
+        btnMap.classList.remove('active');
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
