@@ -114,15 +114,13 @@
     // 1. Inicializar Mapa con capa topográfica clara para contrastar con las trazas
     const map = L.map('map').setView([40.4168, -3.7038], 6);
 
-    const baseMaps = {
-      "Topográfico (OpenTopo)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-        maxZoom: 17, attribution: '© OpenTopoMap'
-      }),
-      "Relieve / Neutro": L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19, attribution: '© CARTO'
+  const baseMaps = {
+      "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap colaboradores'
       })
     };
-    baseMaps["Relieve / Neutro"].addTo(map);
+    baseMaps["OpenStreetMap"].addTo(map);
     L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
     // Capa de polígonos de alerta de fondo (tenues para no tapar los tracks)
