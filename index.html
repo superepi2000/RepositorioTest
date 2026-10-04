@@ -80,7 +80,11 @@
 
   <div class="top-bar">
     <h1>Red de Rutas & AEMET</h1>
+<<<<<<< HEAD
     <div id="statusBadge" class="badge-counter">Comprobando alertas...</div>
+=======
+    <div id="statusBadge" class="badge-counter">Analizando avisos...</div>
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     <div class="view-toggle">
       <button id="btnViewMap" class="active" onclick="setViewMode('visual')">Visual (Tracks)</button>
       <button id="btnViewList" onclick="setViewMode('lista')">Lista Detallada</button>
@@ -89,13 +93,21 @@
 
   <div id="sideDrawer" class="side-drawer hidden">
     <div class="drawer-header">
+<<<<<<< HEAD
       <span id="listCounter">Catálogo de rutas</span>
+=======
+      <span id="listCounter">Cargando catálogo...</span>
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     </div>
     <ul id="routeListContainer" class="route-list"></ul>
   </div>
 
   <div class="map-legend">
+<<<<<<< HEAD
     <div style="font-weight: bold; margin-bottom: 4px;">Avisos Meteorológicos</div>
+=======
+    <div style="font-weight: bold; margin-bottom: 4px;">Estado de Rutas / Avisos</div>
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     <div><span class="legend-bullet" style="background:#0284c7;"></span> Ruta Despejada</div>
     <div><span class="legend-bullet" style="background:#eab308;"></span> Aviso Amarillo</div>
     <div><span class="legend-bullet" style="background:#ea580c;"></span> Aviso Naranja</div>
@@ -105,6 +117,7 @@
   <div id="map"></div>
 
   <script>
+<<<<<<< HEAD
     // 1. Inicialización del Mapa
     const map = L.map('map').setView([40.4168, -3.7038], 6);
 
@@ -112,6 +125,37 @@
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 18,
       attribution: '© OpenStreetMap'
+=======
+    // 1. Inicializar Mapa con capa libre OpenStreetMap
+    const map = L.map('map').setView([40.4168, -3.7038], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap colaboradores | Avisos: Meteoalarm / AEMET'
+    }).addTo(map);
+
+    // 2. Capa para pintar las áreas de aviso meteorológico
+    let alertsGeoLayer = L.geoJSON(null, {
+      style: feature => {
+        const props = JSON.stringify(feature.properties).toLowerCase();
+        let color = '#eab308'; // Amarillo por defecto
+        if (props.includes('orange') || props.includes('naranja') || props.includes('severe')) color = '#ea580c';
+        if (props.includes('red') || props.includes('rojo') || props.includes('extreme')) color = '#dc2626';
+
+        return {
+          color: color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.35
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties;
+        const nombreAviso = p.event || p.headline || p.fenomeno || 'Aviso Meteorológico';
+        const desc = p.description || p.instruction || p.areaDesc || '';
+        layer.bindPopup(`<strong>${nombreAviso}</strong><br><small>${desc}</small>`);
+      }
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     }).addTo(map);
 
     // 2. Capa WMS pública de Avisos Meteorológicos (MeteoAlarm / AEMET)
@@ -134,6 +178,7 @@
     let catalogFeatures = [];
     const routeLayersMap = {};
 
+<<<<<<< HEAD
     const TRACK_STYLES = {
       ok: { color: '#0284c7', weight: 4.5, opacity: 0.9 },
       amarillo: { color: '#ca8a04', weight: 6, opacity: 1.0 },
@@ -150,6 +195,71 @@
         catalogFeatures = data.features;
       } catch (err) {
         console.warn("Cargando rutas de respaldo");
+=======
+    // 3. Estilos de las trazas de ruta (semáforo reactivo)
+    const TRACK_STYLES = {
+      ok: { color: '#0284c7', weight: 4, opacity: 0.85 },
+      amarillo: { color: '#ca8a04', weight: 5.5, opacity: 1.0 },
+      naranja: { color: '#ea580c', weight: 6, opacity: 1.0 },
+      rojo: { color: '#dc2626', weight: 7, opacity: 1.0 }
+    };
+
+    // 4. Descarga de datos
+    async function loadData() {
+      // Intentar descargar alertas oficiales de España usando un proxy CORS abierto
+      const meteoalarmUrl = 'https://api.meteoalarm.org/edr/v1/collections/warnings/items?f=GeoJSON&country=ES';
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(meteoalarmUrl)}`;
+
+      try {
+        const resAlerts = await fetch(proxyUrl);
+        if (resAlerts.ok) {
+          activeAlertsGeoJSON = await resAlerts.json();
+        } else {
+          throw new Error('Fallo al descargar avisos en vivo');
+        }
+      } catch (err) {
+        console.warn("Usando avisos de demostración para visualización:", err);
+        // Zona demostrativa en el sistema central para validar el pintado
+        activeAlertsGeoJSON = {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: {
+                level: "naranja",
+                event: "Aviso Naranja: Rachas de viento muy fuertes",
+                areaDesc: "Sierra de Guadarrama y Somosierra"
+              },
+              geometry: {
+                type: "Polygon",
+                coordinates: [[
+                  [-4.30, 40.65],
+                  [-3.75, 40.65],
+                  [-3.75, 41.15],
+                  [-4.30, 41.15],
+                  [-4.30, 40.65]
+                ]]
+              }
+            }
+          ]
+        };
+      }
+
+      // Dibujar las zonas de aviso en el mapa
+      alertsGeoLayer.addData(activeAlertsGeoJSON);
+
+      // Descargar el catálogo rutas.geojson
+      try {
+        const resRoutes = await fetch('rutas.geojson');
+        if (resRoutes.ok) {
+          const routesData = await resRoutes.json();
+          catalogFeatures = routesData.features;
+        } else {
+          throw new Error('No se pudo cargar rutas.geojson');
+        }
+      } catch (e) {
+        console.warn("rutas.geojson no encontrado, usando rutas de prueba locales.");
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
         catalogFeatures = [
           {
             type: "Feature",
@@ -193,21 +303,66 @@
       renderizarTracks();
     }
 
+<<<<<<< HEAD
     // 4. Renderizar trazas en el mapa
     function renderizarTracks() {
+=======
+    // 5. Análisis espacial y pintado de la red de tracks
+    function procesarRedYRutas() {
+      let alertaCount = 0;
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
       const allBounds = L.latLngBounds();
 
       catalogFeatures.forEach(route => {
         route.statusKey = 'ok'; // Base limpia
 
+<<<<<<< HEAD
+=======
+        // Evaluar colisiones geométricas con Turf.js
+        if (activeAlertsGeoJSON && activeAlertsGeoJSON.features) {
+          activeAlertsGeoJSON.features.forEach(alert => {
+            try {
+              if (turf.booleanIntersects(route, alert)) {
+                routeAlerts.push(alert.properties);
+              }
+            } catch (err) {
+              // Geometría compleja omitida de evaluación
+            }
+          });
+        }
+
+        route.alerts = routeAlerts;
+
+        // Determinar gravedad de la ruta
+        let statusKey = 'ok';
+        if (routeAlerts.length > 0) {
+          alertaCount++;
+          const alertDesc = JSON.stringify(routeAlerts).toLowerCase();
+          if (alertDesc.includes('rojo') || alertDesc.includes('red') || alertDesc.includes('extreme')) statusKey = 'rojo';
+          else if (alertDesc.includes('naranja') || alertDesc.includes('orange') || alertDesc.includes('severe')) statusKey = 'naranja';
+          else statusKey = 'amarillo';
+        }
+        route.statusKey = statusKey;
+
+        // Dibujar track en el mapa
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
         const layer = L.geoJSON(route, {
           style: TRACK_STYLES.ok
         }).addTo(map);
 
+        const avisosTexto = routeAlerts.length > 0 
+          ? routeAlerts.map(a => `• ${a.event || a.headline || a.fenomeno || 'Aviso'}`).join('<br>')
+          : 'Sin avisos meteorológicos en la zona';
+
         layer.bindPopup(`
           <div style="font-size: 0.9rem;">
             <strong>${route.properties.name}</strong><br>
+<<<<<<< HEAD
             <small>Comprueba la capa de color de avisos de fondo sobre esta traza.</small>
+=======
+            Estado: <strong style="text-transform:uppercase; color:${TRACK_STYLES[statusKey].color}">${statusKey === 'ok' ? 'Despejada' : 'Aviso ' + statusKey}</strong><br><br>
+            ${avisosTexto}
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
           </div>
         `);
 
@@ -215,8 +370,24 @@
         allBounds.extend(layer.getBounds());
       });
 
+<<<<<<< HEAD
       if (catalogFeatures.length > 0) {
         map.fitBounds(allBounds, { padding: [60, 60] });
+=======
+      // Encuadrar la vista sobre todas las rutas
+      if (catalogFeatures.length > 0) {
+        map.fitBounds(allBounds, { padding: [50, 50] });
+      }
+
+      // Actualizar contador superior
+      const badge = document.getElementById('statusBadge');
+      if (alertaCount > 0) {
+        badge.className = 'badge-counter badge-danger';
+        badge.innerText = `⚠️ ${alertaCount} de ${catalogFeatures.length} rutas con aviso`;
+      } else {
+        badge.className = 'badge-counter badge-ok';
+        badge.innerText = `✅ ${catalogFeatures.length} rutas despejadas`;
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
       }
 
       const badge = document.getElementById('statusBadge');
@@ -226,11 +397,21 @@
       renderizarModoLista();
     }
 
+<<<<<<< HEAD
+=======
+    // 6. Rellenar Modo Lista
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     function renderizarModoLista() {
       const container = document.getElementById('routeListContainer');
       container.innerHTML = '';
 
+<<<<<<< HEAD
       document.getElementById('listCounter').innerText = `Catálogo (${catalogFeatures.length} rutas)`;
+=======
+      // Ordenar: primero rojas, naranjas, amarillas y al final las despejadas
+      const orden = { rojo: 1, naranja: 2, amarillo: 3, ok: 4 };
+      const sorted = [...catalogFeatures].sort((a, b) => orden[a.statusKey] - orden[b.statusKey]);
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
 
       catalogFeatures.forEach(r => {
         const li = document.createElement('li');
@@ -252,6 +433,10 @@
       });
     }
 
+<<<<<<< HEAD
+=======
+    // 7. Alternar entre Modo Visual y Lista
+>>>>>>> 1e0b42283ec1243bee1426cc67508bdd82e673ec
     function setViewMode(mode) {
       const drawer = document.getElementById('sideDrawer');
       const btnMap = document.getElementById('btnViewMap');
