@@ -115,17 +115,14 @@
     const map = L.map('map').setView([40.4168, -3.7038], 6);
 
     const baseMaps = {
-      "OpenStreetMap (Estándar)": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap colaboradores'
+      "Topográfico (OpenTopo)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17, attribution: '© OpenTopoMap'
       }),
-      "IGN Topográfico (España)": L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg', {
-        maxZoom: 18,
-        attribution: '© Instituto Geográfico Nacional de España (IGN)'
+      "Relieve / Neutro": L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19, attribution: '© CARTO'
       })
     };
-    // Cargamos OpenStreetMap por defecto
-    baseMaps["OpenStreetMap (Estándar)"].addTo(map);
+    baseMaps["Relieve / Neutro"].addTo(map);
     L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
     // Capa de polígonos de alerta de fondo (tenues para no tapar los tracks)
